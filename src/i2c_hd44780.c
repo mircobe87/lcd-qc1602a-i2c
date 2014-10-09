@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
 #include <wiringPiI2C.h>
 #include "i2c_hd44780.h"
 
@@ -49,14 +50,14 @@
  * @param hNibble2 seconda parte del comando da mandare al display.
  * @retval <0 in caso di errore (setta errno)
  */
-int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2);
+static int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2);
 
 /**
  * Restituisce la posizione attuale del cursore.
  *
  * @param d Il display
  */
-int getCursorAddr(i2cDisplay_t d);
+static int getCursorAddr(i2cDisplay_t d);
 
 /**
  * Setta una nuova posizione del cursore nella struttura che rappresente il display.
@@ -65,7 +66,7 @@ int getCursorAddr(i2cDisplay_t d);
  * @param nuova posizione del cursore.
  * @return il nuovo indirizzo del cursore normalizzato.
  */
-int setCursorAddr(i2cDisplay_t d, int addr);
+static int setCursorAddr(i2cDisplay_t d, int addr);
 
 /**
  * Ritorna il numero di linee che il display utilizza.
@@ -73,7 +74,7 @@ int setCursorAddr(i2cDisplay_t d, int addr);
  * @param d Il display.
  * @return Il numero di linee
  */
-int getLinesNum(i2cDisplay_t d);
+static int getLinesNum(i2cDisplay_t d);
 
 /**
  * Normalizza un indirzzo per il cursore a seconda del numero di linee utilizzate
@@ -90,7 +91,7 @@ int getLinesNum(i2cDisplay_t d);
  *    ogni indirizzo maggiore di II_LINE_END_2L_ADDR viene trasformato in
  *    II_LINE_BEGIN_1L_ADDR.
  */
-int normalizeCursorAddr(int dispLines, int addr);
+static int normalizeCursorAddr(int dispLines, int addr);
 
 /**
  * Incrementa o decrementa di un numero arbitrario un indirizzo DDRAM con le
@@ -108,85 +109,158 @@ int normalizeCursorAddr(int dispLines, int addr);
  *    andare oltre la fine (prima dell'inizio) di una riga ci porta all'inizio
  *    (alla fine) dell'altra.
  */
-int shiftDDRAMaddr(int nLines, int DDRAMaddr, int offset);
+static int shiftDDRAMaddr(int nLines, int DDRAMaddr, int offset);
+
+/**
+ * Salva lo stato del display su file.
+ * Il nome del file usato è quello memorizzato nella variabile globale DSFileName.
+ * 
+ * @param d il display.
+ */
+static void saveDisplayState(i2cDisplay_t d);
+
+/* ------------ Variabili globali --------------------------------------------*/
+/**
+ * Memorizza il nome del file che ricorda lo stato del display
+ */
+static const char* DSFileName;
 /*------------- Implementazione libreria -------------------------------------*/
 
-i2cDisplay_t mkDisplay(int addr, int lines, rom_t romType){
+i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayFileName){
+	FILE * fDisplay;
+	size_t n;
 	i2cDisplay_t display;
 	int i2cBus;
 	errno = 0;
 	
-	display = malloc(sizeof(struct_i2cDispaly_t));
-	if(display){
-		if ( addr >= 0x03 && addr <= 0x77 ){
-			if(lines > 0 && lines < 3){
-				if( (i2cBus = wiringPiI2CSetup(addr)) >= 0 ){
-					/* set nibble comunication */
-					wiringPiI2CWrite(i2cBus, 0x2C);
-					wiringPiI2CWrite(i2cBus, 0x28);
-					
-					/* set 1 o 2 lines and 5x8 charset */
-					wiringPiI2CWrite(i2cBus, 0x2C);
-					wiringPiI2CWrite(i2cBus, 0x28);
-					if(lines == 1){
-						wiringPiI2CWrite(i2cBus, 0x0C);
-						wiringPiI2CWrite(i2cBus, 0x08);
+	if (access(displayFileName, F_OK) <= 0) {
+		/* il file di stato esiste */
+		fDisplay = fopen(displayFileName, "rb");
+		if (fDisplay){
+			display = malloc(sizeof(struct_i2cDispaly_t));
+			if (display){
+				n = fread(display, 1, sizeof(struct_i2cDispaly_t), fDisplay);
+				fclose(fDisplay);
+				if (n != 1) {
+					errno = EIO;
+					free(display);
+					display = NULL;
+				}else{
+					if (display->addr != addr) {
+						errno = EINVAL;
+						free(display);
+						display = NULL;
 					}else{
-						wiringPiI2CWrite(i2cBus, 0x8C);
-						wiringPiI2CWrite(i2cBus, 0x88);
+						DSFileName = displayFileName;
 					}
-					
-					/* entry mode: shift R and no display shifting */
-					wiringPiI2CWrite(i2cBus, 0x0C);
-					wiringPiI2CWrite(i2cBus, 0x08);
-					wiringPiI2CWrite(i2cBus, 0x6C);
-					wiringPiI2CWrite(i2cBus, 0x68);
-					
-					/* display ON and all cursors OFF */
-					wiringPiI2CWrite(i2cBus, 0x0C);
-					wiringPiI2CWrite(i2cBus, 0x08);
-					wiringPiI2CWrite(i2cBus, 0xCC);
-					wiringPiI2CWrite(i2cBus, 0xC8);
-					
-					/* clear display */
-					wiringPiI2CWrite(i2cBus, 0x0C);
-					wiringPiI2CWrite(i2cBus, 0x08);
-					wiringPiI2CWrite(i2cBus, 0x1C);
-					wiringPiI2CWrite(i2cBus, 0x18);
-					
-					/* backlight ON */
-					wiringPiI2CWrite(i2cBus, 0x08);
-					
-					display->addr           = addr;
-					display->lines          = lines;
-					display->romType        = romType;
-					display->cursorAddr     = 0x00;
-					display->blStatus       = ON;
-					display->displayStatus  = ON;
-					display->cursorStatus   = OFF;
-					display->blinkStatus    = OFF;
-					display->cursorDirShift = RIGHT;
-					display->displayShift   = OFF;
-					display->i2cBus         = i2cBus;
-					
+				}
+			}else{
+				errno = ENOMEM;
+				fclose(fDisplay);
+				display = NULL;
+			}
+		}else{
+			/* errno settato da fopen() */
+			display = NULL;
+		}
+	}else{
+		/* il file di stato NON esiste */
+		fDisplay = fopen(displayFileName, "wb");
+		if (fDisplay) {
+			display = malloc(sizeof(struct_i2cDispaly_t));
+			if (display) {
+				if ( addr >= 0x03 && addr <= 0x77 ){
+					if(lines > 0 && lines < 3){
+						if( (i2cBus = wiringPiI2CSetup(addr)) >= 0 ){
+							/* set nibble comunication */
+							wiringPiI2CWrite(i2cBus, 0x2C);
+							wiringPiI2CWrite(i2cBus, 0x28);
+							
+							/* set 1 o 2 lines and 5x8 charset */
+							wiringPiI2CWrite(i2cBus, 0x2C);
+							wiringPiI2CWrite(i2cBus, 0x28);
+							if(lines == 1){
+								wiringPiI2CWrite(i2cBus, 0x0C);
+								wiringPiI2CWrite(i2cBus, 0x08);
+							}else{
+								wiringPiI2CWrite(i2cBus, 0x8C);
+								wiringPiI2CWrite(i2cBus, 0x88);
+							}
+							
+							/* entry mode: shift R and no display shifting */
+							wiringPiI2CWrite(i2cBus, 0x0C);
+							wiringPiI2CWrite(i2cBus, 0x08);
+							wiringPiI2CWrite(i2cBus, 0x6C);
+							wiringPiI2CWrite(i2cBus, 0x68);
+							
+							/* display ON and all cursors OFF */
+							wiringPiI2CWrite(i2cBus, 0x0C);
+							wiringPiI2CWrite(i2cBus, 0x08);
+							wiringPiI2CWrite(i2cBus, 0xCC);
+							wiringPiI2CWrite(i2cBus, 0xC8);
+							
+							/* clear display */
+							wiringPiI2CWrite(i2cBus, 0x0C);
+							wiringPiI2CWrite(i2cBus, 0x08);
+							wiringPiI2CWrite(i2cBus, 0x1C);
+							wiringPiI2CWrite(i2cBus, 0x18);
+							
+							/* backlight ON */
+							wiringPiI2CWrite(i2cBus, 0x08);
+							
+							display->addr           = addr;
+							display->lines          = lines;
+							display->romType        = romType;
+							display->cursorAddr     = 0x00;
+							display->blStatus       = ON;
+							display->displayStatus  = ON;
+							display->cursorStatus   = OFF;
+							display->blinkStatus    = OFF;
+							display->cursorDirShift = RIGHT;
+							display->displayShift   = OFF;
+							display->i2cBus         = i2cBus;
+							
+							if (fwrite(display, 1, sizeof(struct_i2cDispaly_t), fDisplay) != 1){
+								free(display);
+								fclose(fDisplay);
+								remove(displayFileName);
+								/* errno settata da fwrite() */
+								display = NULL;
+							}else{
+								DSFileName = displayFileName;
+							}
+						}else{
+							free(display);
+							fclose(fDisplay);
+							remove(displayFileName);
+							/* errno settata da wiringPiI2CSetup() */
+							display = NULL;
+						}
+					}else{
+						free(display);
+						fclose(fDisplay);
+						remove(displayFileName);
+						errno = EINVAL;
+						display = NULL;
+					}
 				}else{
 					free(display);
+					fclose(fDisplay);
+					remove(displayFileName);
+					errno = EADDRNOTAVAIL;
 					display = NULL;
 				}
 			}else{
-				free(display);
+				errno = ENOMEM;
+				fclose(fDisplay);
+				remove(displayFileName);
 				display = NULL;
-				errno = EINVAL;
 			}
 		}else{
-			free(display);
+			/* errno settato da fopen() */
 			display = NULL;
-			errno = EADDRNOTAVAIL;
 		}
-	}else{
-		errno = ENOMEM;
 	}
-	
 	return display;
 }
 
@@ -208,8 +282,10 @@ int backlightSwitch(i2cDisplay_t d, switchStatus_t onOff){
 			if(retval >= 0)
 				d->blStatus = onOff;
 		}
+		saveDisplayState(d);
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -244,10 +320,12 @@ int diplaySwitch(i2cDisplay_t d, switchStatus_t onOff){
 		if(ds != onOff)
 			if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
 				d->displayStatus = onOff;
+				saveDisplayState(d);
 			}
 
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -278,22 +356,16 @@ int cursorSwitch(i2cDisplay_t d, switchStatus_t onOff){
 		
 		hnibble1 = 0x0;
 		hnibble2 = 1 << 3 | ds << 2 | onOff << 1 | bs;
-/*
-		printf("ds: 0x%02X, cs: 0x%02X, bs: 0x%02X\n", ds, cs, bs);
-		printf("1 << 3 = 0x%02X\n", 1 << 3);
-		printf("ds << 2 = 0x%02X\n", ds << 2);
-		printf("onOff << 1 = 0x%02X\n", onOff << 1);
-		printf("bs = 0x%02X\n", bs);
-		printf("hnibble1 = 0x%02X\n", hnibble1);
-		printf("hnibble2 = 0x%02X\n", hnibble2);
-*/		
+		
 		if(cs != onOff)
 			if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
 				d->cursorStatus = onOff;
+				saveDisplayState(d);
 			}
 
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -328,10 +400,12 @@ int blinkSwitch(i2cDisplay_t d, switchStatus_t onOff){
 		if(bs != onOff)
 			if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
 				d->blinkStatus = onOff;
+				saveDisplayState(d);
 			}
 
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -366,10 +440,12 @@ int setEntryMode(i2cDisplay_t d, shiftDirection_t leftRight, switchStatus_t onOf
 			if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
 				d->cursorDirShift = onOff;
 				d->displayShift = leftRight;
+				saveDisplayState(d);
 			}
 			
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -409,24 +485,31 @@ int shiftCursor(i2cDisplay_t d, shiftDirection_t leftRight){
 				setCursorAddr(d, shiftDDRAMaddr(getLinesNum(d), getCursorAddr(d),-1));
 			else
 				setCursorAddr(d, shiftDDRAMaddr(getLinesNum(d), getCursorAddr(d),1));
+			
+			saveDisplayState(d);
 		}
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
 }
 
 int shiftDisplay(i2cDisplay_t d, shiftDirection_t leftRight){
-	int hnibble1, hnibble2;
+	int hnibble1, hnibble2, retval;
 	
 	errno = 0;
 	hnibble1 = 0x1;
 	hnibble2 = 1 << 3 | leftRight << 2;
 	
 	if(d){
-		return makeAndSendCommand(d, hnibble1, hnibble2);
+		if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
+			saveDisplayState(d);
+		}
+		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -441,11 +524,14 @@ int clear(i2cDisplay_t d){
 	hnibble2 = 0x1;
 	
 	if (d){
-		if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0)
+		if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
 			setCursorAddr(d, 0);
+			saveDisplayState(d);
+		}
 
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -493,9 +579,11 @@ int cursorSeek(i2cDisplay_t d, cursorRef_t ref, int offset){
 		
 		if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) <= 0){
 			setCursorAddr(d, absAddr);
+			saveDisplayState(d);
 		}
 		return retval;
 	}else{
+		saveDisplayState(d);
 		errno = EINVAL;
 		return -1;
 	}
@@ -506,7 +594,7 @@ int cursorSeek(i2cDisplay_t d, cursorRef_t ref, int offset){
 
 /*------------------ Implementazione funzioni ausiliarie ---------------------*/
 
-int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2){
+static int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2){
 	int byte[4], i, max, retval;
 	int bl;
 	
@@ -532,11 +620,11 @@ int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2){
 	return retval;
 }
 
-int getCursorAddr(i2cDisplay_t d){
+static int getCursorAddr(i2cDisplay_t d){
 	return d->cursorAddr;
 }
 
-int setCursorAddr(i2cDisplay_t d, int addr){
+static int setCursorAddr(i2cDisplay_t d, int addr){
 	int l, normAddr;
 	
 	l = getLinesNum(d);
@@ -545,7 +633,7 @@ int setCursorAddr(i2cDisplay_t d, int addr){
 	return normAddr;
 }
 
-int shiftDDRAMaddr(int nLines, int DDRAMaddr, int offset){
+static int shiftDDRAMaddr(int nLines, int DDRAMaddr, int offset){
 	int newAddr;
 	
 	if(nLines == 1){
@@ -576,7 +664,7 @@ int shiftDDRAMaddr(int nLines, int DDRAMaddr, int offset){
 	return newAddr;
 }
 
-int normalizeCursorAddr(int dispLines, int addr){
+static int normalizeCursorAddr(int dispLines, int addr){
 	int normAddr;
 	
 	if (dispLines == 1){
@@ -595,7 +683,14 @@ int normalizeCursorAddr(int dispLines, int addr){
 	return normAddr;
 }
 
-int getLinesNum(i2cDisplay_t d){
+static int getLinesNum(i2cDisplay_t d){
 	return d->lines;
 }
 
+static void saveDisplayState(i2cDisplay_t d){
+	FILE * fout;
+	
+	fout = fopen(DSFileName, "wb");
+	fwrite(d, 1, sizeof(struct_i2cDispaly_t), fout);
+	fclose(fout);
+}

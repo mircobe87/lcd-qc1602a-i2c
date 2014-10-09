@@ -99,18 +99,21 @@ typedef struct {
 typedef struct_i2cDispaly_t *i2cDisplay_t;
 
 /**
- * Inizializza un nuovo display.
+ * Restituisce un display inizializzato. Se in precedenza è già stato
+ * inizializzato questo display, lo stato precedente viene caricato da file.
  *
  * @param addr Indirizzo I2C del display.
  * @param lines Numero di linee da usare sul display.
  * @param romType Tipo della ROM presente sul display.
+ * @param displayFileName path al file usato per caricare un vecchio stato o per
+ *        salvare quello nuovo.
  *
  * @return l'istanza di un nuovo display. Il nuovo display sarà attivo con la
  *         retroilluminazione accesa, il cursore sarà posizionato all'inizio ma
  *         non visibile (ne statico ne lampeggiante) e durante la scrittura si
  *         sposterà a destra metre il contenuto del display rimarrà fermo.
  */
-i2cDisplay_t mkDisplay(int addr, int lines, rom_t romType);
+i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayFileName);
 
 /**
  * Controlla la retroilluminazione.
