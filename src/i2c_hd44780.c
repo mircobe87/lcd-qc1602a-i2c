@@ -133,13 +133,13 @@ i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayF
 	int i2cBus;
 	errno = 0;
 	
-	if (access(displayFileName, F_OK) <= 0) {
+	if (access(displayFileName, F_OK) >= 0) {
 		/* il file di stato esiste */
 		fDisplay = fopen(displayFileName, "rb");
 		if (fDisplay){
 			display = malloc(sizeof(struct_i2cDispaly_t));
 			if (display){
-				n = fread(display, 1, sizeof(struct_i2cDispaly_t), fDisplay);
+				n = fread(display, sizeof(struct_i2cDispaly_t), 1, fDisplay);
 				fclose(fDisplay);
 				if (n != 1) {
 					errno = EIO;
@@ -151,7 +151,14 @@ i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayF
 						free(display);
 						display = NULL;
 					}else{
-						DSFileName = displayFileName;
+						if( (i2cBus = wiringPiI2CSetup(addr)) >= 0 ){
+							display->i2cBus = i2cBus;
+							DSFileName = displayFileName;
+						}else{
+							/*errno settato da wiringPiI2CSetup() */
+							free(display);
+							display = NULL;
+						}
 					}
 				}
 			}else{
@@ -220,7 +227,7 @@ i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayF
 							display->displayShift   = OFF;
 							display->i2cBus         = i2cBus;
 							
-							if (fwrite(display, 1, sizeof(struct_i2cDispaly_t), fDisplay) != 1){
+							if (fwrite(display, sizeof(struct_i2cDispaly_t), 1, fDisplay) != 1){
 								free(display);
 								fclose(fDisplay);
 								remove(displayFileName);
@@ -691,6 +698,6 @@ static void saveDisplayState(i2cDisplay_t d){
 	FILE * fout;
 	
 	fout = fopen(DSFileName, "wb");
-	fwrite(d, 1, sizeof(struct_i2cDispaly_t), fout);
+	fwrite(d, sizeof(struct_i2cDispaly_t), 1, fout);
 	fclose(fout);
 }

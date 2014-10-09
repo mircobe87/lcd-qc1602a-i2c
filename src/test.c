@@ -61,8 +61,11 @@ void printDisplay(i2cDisplay_t d){
 int main(int argc, char *argv[]){
 	i2cDisplay_t d;
 	int i;
-//	d = mkFakeDisplay(0x27, 2, A00);
-	d = mkDisplay(0x27, 2, A00);
+/*	d = mkFakeDisplay(0x27, 2, A00);*/
+	d = getDisplay(0x27, 2, A00, "display.status");
+	if (!d){
+		perror("Nessun display creato");
+	}
 	printDisplay(d);
 	
 	printf("cursorSwitch(d, ON):\n");
@@ -71,7 +74,7 @@ int main(int argc, char *argv[]){
 	printDisplay(d);
 	
 	sleep(1);
-//	printf("cursorSwitch(d, OFF):\n");
+/*	printf("cursorSwitch(d, OFF):\n");*/
 	cursorSwitch(d, OFF);
 	
 	sleep(1);
