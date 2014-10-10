@@ -280,5 +280,33 @@ int clear(i2cDisplay_t d);
  * @retval -1 in caso di errore (setta errno)
  */
 int cursorSeek(i2cDisplay_t d, cursorRef_t ref, int offset);
+
+/**
+ * Stampa un carattere sul display nella posizione attuale del cursore.
+ * L'effettivo glifo mostrato sul display dipende dalla CGROM che il display
+ * possiede.'
+ * 
+ * @param d il display
+ * @param c il carattere da stampare.
+ * 
+ * @retval >0 in caso di errore (setta errno)
+ */
+int lcdPutChar(i2cDisplay_t d, int c);
+
+/**
+ * Stampa una stringa di testo sul display a partire dalla posizione corrente
+ * del cursore.
+ * 
+ * I glifi effettivamente mostrati sul display dipendono dalla CGROM del display
+ * stesso.
+ * 
+ * @param d il display
+ * @param format la stringa formattata da stampare
+ * @param ... elenco di parametri utilizzati nella stringa di formato.
+ * 
+ * @retval <0 in caso di errore (setta errno)
+ * @retval n il numero di caratteri stampati
+ */
+ int lcdPrintf(i2cDisplay_t d, const char *format, ...);
 #endif /* __I2C_HD44780_H__ */
 
