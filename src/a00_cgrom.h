@@ -29,38 +29,38 @@
 #ifndef __A00_CGROM_H__
 #define __A00_CGROM_H__
 
-#define A00_YEN '¥'
-#define A00_ARROW_R '→'
-#define A00_ARROW_L '←'
-#define A00_DEGREE '°'
-#define A00_ALPHA 'α'
-#define A00_2DOT_A 'ä'
-#define A00_BETA 'β'
-#define A00_EPSILON 'ε'
-#define A00_MU 'μ'
-#define A00_SIGMA 'σ'
-#define A00_RHO 'ρ'
-#define A00_LONG_G 'ǥ'
-#define A00_SQRT '√'
-#define A00_RECIPROCAL '¯'
-#define A00_IMAGINARY 'ⅉ'
-#define A00_SUP_X '˟'
-#define A00_CENT '¢'
-#define A00_LIRA '£'
-#define A00_N_TILDE 'ñ'
-#define A00_2DOT_O 'ö'
-#define A00_LONG_P 'Ƿ'
-#define A00_LONG_Q 'Ǫ'
-#define A00_THETA 'θ'
-#define A00_INFINITY '∞'
-#define A00_OMEGA 'Ω'
-#define A00_2DOT_U 'ü'
-#define A00_SSIGMA 'Σ'
-#define A00_PI 'π'
-#define A00_NOT_X '×'
-#define A00_LONG_Y 'Ұ'
-#define A00_DIV '÷'
-#define A00_BLOCK '█'
+#define A00_YEN        0x5A /* '¥' */
+#define A00_ARROW_R    0x7E /* '→' */
+#define A00_ARROW_L    0x7F /* '←' */
+#define A00_DEGREE     0xDF /* '°' */
+#define A00_ALPHA      0xE0 /* 'α' */
+#define A00_2DOT_A     0xE1 /* 'ä' */
+#define A00_BETA       0xE2 /* 'β' */
+#define A00_EPSILON    0xE3 /* 'ε' */
+#define A00_MU         0xE4 /* 'μ' */
+#define A00_SIGMA      0xE5 /* 'σ' */
+#define A00_RHO        0xE6 /* 'ρ' */
+#define A00_LONG_G     0xE7 /* 'ǥ' */
+#define A00_SQRT       0xE8 /* '√' */
+#define A00_RECIPROCAL 0xE9 /* '¯' */
+#define A00_IMAGINARY  0xEA /* 'ⅉ' */
+#define A00_SUP_X      0xEB /* '˟' */
+#define A00_CENT       0xEC /* '¢' */
+#define A00_LIRA       0xEE /* '£' */
+#define A00_N_TILDE    0xEF /* 'ñ' */
+#define A00_2DOT_O     0xF0 /* 'ö' */
+#define A00_LONG_P     0xF1 /* 'Ƿ' */
+#define A00_LONG_Q     0xF2 /* 'Ǫ' */
+#define A00_THETA      0xF3 /* 'θ' */
+#define A00_INFINITY   0xF4 /* '∞' */
+#define A00_OMEGA      0xF5 /* 'Ω' */
+#define A00_2DOT_U     0xF6 /* 'ü' */
+#define A00_SSIGMA     0xF7 /* 'Σ' */
+#define A00_PI         0xF8 /* 'π' */
+#define A00_NOT_X      0xF9 /* '×' */
+#define A00_LONG_Y     0xFA /* 'Ұ' */
+#define A00_DIV        0xFD /* '÷' */
+#define A00_BLOCK      0xFF /* '█' */
 
 /**
  * Ritorna l'indirizzo di un carattere

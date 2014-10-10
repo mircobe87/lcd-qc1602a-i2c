@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "i2c_hd44780.h"
+#include "a00_cgrom.h"
 
 i2cDisplay_t mkFakeDisplay(int addr, int lines, rom_t romType){
 	i2cDisplay_t display;
@@ -61,20 +62,18 @@ void printDisplay(i2cDisplay_t d){
 int main(int argc, char *argv[]){
 	i2cDisplay_t d;
 	int i;
-/*	d = mkFakeDisplay(0x27, 2, A00);*/
+
 	d = getDisplay(0x27, 2, A00, "display.status");
 	if (!d){
 		perror("Nessun display creato");
 	}
-	printDisplay(d);
 	
-	printf("cursorSwitch(d, ON):\n");
+	clear(d);
 	cursorSwitch(d, ON);
-	printf("\n");
-	printDisplay(d);
 	
-	sleep(1);
-/*	printf("cursorSwitch(d, OFF):\n");*/
+	lcdPrintf(d, "Test Display\nI2C addr: 0x%02X", 0x27);
+	
+	sleep(10);
 	cursorSwitch(d, OFF);
 	
 	sleep(1);
@@ -82,6 +81,9 @@ int main(int argc, char *argv[]){
 	sleep(5);
 	blinkSwitch(d, OFF);
 	cursorSwitch(d, ON);
+	sleep(1);
+	cursorSwitch(d, OFF);
+	blinkSwitch(d, ON);
 	sleep(1);
 	cursorSeek(d, L1_START, 0);
 	sleep(1);
@@ -92,19 +94,33 @@ int main(int argc, char *argv[]){
 	cursorSeek(d, L2_END, -24);
 	sleep(1);
 	clear(d);
+	blinkSwitch(d, OFF);
+	cursorSwitch(d, ON);
 	sleep(1);
+	backlightSwitch(d, OFF);
+	usleep(100000);
+	backlightSwitch(d, ON);
 	for(i=0; i<80; i++){
 		shiftCursor(d, RIGHT);
 		usleep(100000);
 	}
+	backlightSwitch(d, OFF);
+	usleep(100000);
+	backlightSwitch(d, ON);
 	for(i=0; i<80; i++){
 		shiftCursor(d, LEFT);
 		usleep(100000);
 	}
 	backlightSwitch(d, OFF);
+	usleep(100000);
+	backlightSwitch(d, ON);
+	usleep(100000);
+	backlightSwitch(d, OFF);
 	sleep(1);
 	backlightSwitch(d, ON);
 	clear(d);
+	cursorSwitch(d, OFF);
+	lcdPrintf(d, "      The%c\n      %cEnd", A00_ARROW_R, A00_ARROW_L);
 	printDisplay(d);
 	
 	return EXIT_SUCCESS;

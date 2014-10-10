@@ -289,7 +289,7 @@ int cursorSeek(i2cDisplay_t d, cursorRef_t ref, int offset);
  * @param d il display
  * @param c il carattere da stampare.
  * 
- * @retval >0 in caso di errore (setta errno)
+ * @retval <0 in caso di errore (setta errno)
  */
 int lcdPutChar(i2cDisplay_t d, int c);
 

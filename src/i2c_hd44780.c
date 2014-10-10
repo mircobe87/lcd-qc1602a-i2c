@@ -29,10 +29,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <errno.h>
 #include <unistd.h>
 #include <wiringPiI2C.h>
 #include "i2c_hd44780.h"
+#include "a00_cgrom.h"
 
 #define CMD_WRITE_E1 0x04 /* nibble inferiore per scrittura comando (enable = 1) */
 #define CMD_WRITE_E0 0x00 /* nibble inferiore per scrittura comando (enable = 0) */
@@ -51,6 +53,16 @@
  * @retval <0 in caso di errore (setta errno)
  */
 static int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2);
+
+/**
+ * Costruisce un messaggio dati e lo scrive sul display
+ * 
+ * @param d il display
+ * @param hNibble1 prima parte dei dati da scrivere
+ * @param hNibble2 seconda parte dei dati da scrivere
+ * @retval <0 in caso di errore (setta errno)
+ */
+static int makeAndWriteData(i2cDisplay_t d, int hNibble1, int hNibble2);
 
 /**
  * Restituisce la posizione attuale del cursore.
@@ -596,8 +608,77 @@ int cursorSeek(i2cDisplay_t d, cursorRef_t ref, int offset){
 	}
 }
 
+int lcdPutChar(i2cDisplay_t d, int c){
+	int retval, hnibble1, hnibble2, charCode, offset, cursorAddr;
+	
+	retval = 0;
+	errno = 0;
+	if (d) {
+		if (c != '\0'){
+			if (c == '\n'){
+				cursorAddr = getCursorAddr(d);
+				if (getLinesNum(d) == 1){
+					retval = cursorSeek(d, L1_START, 0);
+				}else{
+					if (II_LINE_BEGIN_1L_ADDR <= cursorAddr && cursorAddr <= II_LINE_END_1L_ADDR)
+						retval = cursorSeek(d, L2_START, 0);
+					else
+						retval = cursorSeek(d, L1_START, 0);
+				}
+				saveDisplayState(d);
+			}else{
+				offset = (getCursorDir(d) == LEFT) ? -1 : 1;
+				switch (d->romType){
+					case A00: {
+						charCode = getA00char(c);
+					}break;
+					case A02: {
+						charCode = getA00char(c);
+					}break;
+				}
+				
+				hnibble1 = (charCode & 0xF0) >> 4;
+				hnibble2 = (charCode & 0x0F);
 
+				if ((retval = makeAndWriteData(d, hnibble1, hnibble2)) >= 0){
+					setCursorAddr(d,shiftDDRAMaddr(getLinesNum(d), getCursorAddr(d), offset));
+					saveDisplayState(d);
+				}else{
+					/* errno settata da makeAndWriteData(...) */
+					saveDisplayState(d);
+				}
+			}
+		}
+	}else{
+		saveDisplayState(d);
+		errno = EINVAL;
+		retval = -1;
+	}
+	return retval;
+}
 
+int lcdPrintf(i2cDisplay_t d, const char *format, ...){
+	char buff[I_LINE_MAX_CHAR +1] = {'\0'};
+	int retval, nChar, i;
+	va_list argList;
+	
+	retval = 0;
+	errno = 0;
+	if (d){
+		va_start(argList, format);
+		nChar = vsnprintf(buff, I_LINE_MAX_CHAR+1, format, argList);
+		va_end(argList);
+		puts(buff);
+		for(i=0; i<nChar; i++){
+			if ((retval = lcdPutChar(d, buff[i])) <0)
+				break;
+		}
+		saveDisplayState(d);
+	}else{
+		errno = EINVAL;
+	}
+	return retval;
+}
 
 /*------------------ Implementazione funzioni ausiliarie ---------------------*/
 
@@ -612,6 +693,28 @@ static int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2){
 	byte[1] = (hNibble1 << 4) | (CMD_WRITE_E0 | bl << 3);
 	byte[2] = (hNibble2 << 4) | (CMD_WRITE_E1 | bl << 3);
 	byte[3] = (hNibble2 << 4) | (CMD_WRITE_E0 | bl << 3);
+	retval = 0;
+
+	i=0;
+	while( (retval = wiringPiI2CWrite(d->i2cBus, byte[i])) >= 0 ){
+		i++;
+		if( i == max ) break;
+	}
+	
+	return retval;
+}
+
+static int makeAndWriteData(i2cDisplay_t d, int hNibble1, int hNibble2){
+	int byte[4], i, max, retval;
+	int bl;
+	
+	bl = getBacklightStatus(d);
+	i = 0;
+	max = 4;
+	byte[0] = (hNibble1 << 4) | (DATA_WRITE_E1 | bl << 3);
+	byte[1] = (hNibble1 << 4) | (DATA_WRITE_E0 | bl << 3);
+	byte[2] = (hNibble2 << 4) | (DATA_WRITE_E1 | bl << 3);
+	byte[3] = (hNibble2 << 4) | (DATA_WRITE_E0 | bl << 3);
 	retval = 0;
 
 	i=0;
