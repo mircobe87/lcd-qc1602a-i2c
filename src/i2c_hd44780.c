@@ -43,7 +43,7 @@
 /*----------------- Funzioni Ausiliarie -------------------*/
 
 /**
- * Construisce e invia un comando al display.
+ * Costruisce e invia un comando al display.
  *
  * @param d Il display.
  * @param hNibble1 prima parte del comando da inviare al display.
@@ -60,7 +60,7 @@ static int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2);
 static int getCursorAddr(i2cDisplay_t d);
 
 /**
- * Setta una nuova posizione del cursore nella struttura che rappresente il display.
+ * Setta una nuova posizione del cursore nella struttura che rappresenta il display.
  *
  * @param d Il display
  * @param nuova posizione del cursore.
@@ -77,14 +77,14 @@ static int setCursorAddr(i2cDisplay_t d, int addr);
 static int getLinesNum(i2cDisplay_t d);
 
 /**
- * Normalizza un indirzzo per il cursore a seconda del numero di linee utilizzate
+ * Normalizza un indirizzo per il cursore a seconda del numero di linee utilizzate
  * dal display.
  *
  * @param dispLines linee utilizzate
  * @param addr indirizzo da normalizzare
  *
  * @return un indirizzo normalizzato:
- *  - se si lavora con una riga l'indirizzo è normalizzato mantenedono sempre
+ *  - se si lavora con una riga l'indirizzo è normalizzato mantenendolo sempre
  *    entro l'intervallo 0x00-I_LINE_MAX_CHAR;
  *  - se si lavora con 2 righe, ogni indirizzo compreso tra II_LINE_END_1L_ADDR
  *    e II_LINE_BEGIN_2L_ADDR vie trasformato in II_LINE_BEGIN_2L_ADDR, mentre
@@ -613,11 +613,7 @@ static int makeAndSendCommand(i2cDisplay_t d, int hNibble1, int hNibble2){
 	byte[2] = (hNibble2 << 4) | (CMD_WRITE_E1 | bl << 3);
 	byte[3] = (hNibble2 << 4) | (CMD_WRITE_E0 | bl << 3);
 	retval = 0;
-	/*
-	for(i=0; i<max; i++){
-		printf("send byte[%d] = 0x%02X\n", i, byte[i]);
-	}
-	*/
+
 	i=0;
 	while( (retval = wiringPiI2CWrite(d->i2cBus, byte[i])) >= 0 ){
 		i++;

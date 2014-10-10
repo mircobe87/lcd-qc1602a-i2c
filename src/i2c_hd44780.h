@@ -111,7 +111,7 @@ typedef struct_i2cDispaly_t *i2cDisplay_t;
  * @return l'istanza di un nuovo display. Il nuovo display sarà attivo con la
  *         retroilluminazione accesa, il cursore sarà posizionato all'inizio ma
  *         non visibile (ne statico ne lampeggiante) e durante la scrittura si
- *         sposterà a destra metre il contenuto del display rimarrà fermo.
+ *         sposterà a destra mentre il contenuto del display rimarrà fermo.
  */
 i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayFileName);
 
