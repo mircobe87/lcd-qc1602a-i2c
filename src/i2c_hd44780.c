@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <wiringPiI2C.h>
@@ -130,6 +131,17 @@ static int shiftDDRAMaddr(int nLines, int DDRAMaddr, int offset);
  * @param d il display.
  */
 static void saveDisplayState(i2cDisplay_t d);
+
+/**
+ * Calcola l'indice giusto nel vettore della struttura che memorizza i dati
+ * delle linee scritte sul display a partire dalla posizione attuale del cursore
+ * 
+ * @param lines numero di linee usate sul display
+ * @param cursorAddr posizione attuale del cursore
+ * 
+ * @return un intero compreso tra 0 e I_LINE_MAX_CHAR
+ */
+static int getLinesDataIndex(int lines, int cursorAddr);
 
 /* ------------ Variabili globali --------------------------------------------*/
 /**
@@ -238,6 +250,7 @@ i2cDisplay_t getDisplay(int addr, int lines, rom_t romType, const char *displayF
 							display->cursorDirShift = RIGHT;
 							display->displayShift   = OFF;
 							display->i2cBus         = i2cBus;
+							memset(display->linesData, 0, I_LINE_MAX_CHAR);
 							
 							if (fwrite(display, sizeof(struct_i2cDispaly_t), 1, fDisplay) != 1){
 								free(display);
@@ -320,7 +333,7 @@ switchStatus_t getBacklightStatus(i2cDisplay_t d){
 	}
 }
 
-int diplaySwitch(i2cDisplay_t d, switchStatus_t onOff){
+int displaySwitch(i2cDisplay_t d, switchStatus_t onOff){
 	switchStatus_t ds, cs, bs;
 	int hnibble1, hnibble2;
 	int retval;
@@ -545,6 +558,7 @@ int clear(i2cDisplay_t d){
 	if (d){
 		if ( (retval = makeAndSendCommand(d, hnibble1, hnibble2)) >= 0){
 			setCursorAddr(d, 0);
+			memset(d->linesData, 0, I_LINE_MAX_CHAR);
 			saveDisplayState(d);
 		}
 
@@ -610,6 +624,8 @@ int cursorSeek(i2cDisplay_t d, cursorRef_t ref, int offset){
 
 int lcdPutChar(i2cDisplay_t d, int c){
 	int retval, hnibble1, hnibble2, charCode, offset, cursorAddr;
+	int index, nChar;
+	char buff[I_LINE_MAX_CHAR] = {'\0'};
 	
 	retval = 0;
 	errno = 0;
@@ -618,12 +634,25 @@ int lcdPutChar(i2cDisplay_t d, int c){
 			if (c == '\n'){
 				cursorAddr = getCursorAddr(d);
 				if (getLinesNum(d) == 1){
-					retval = cursorSeek(d, L1_START, 0);
+					retval = clear(d);
 				}else{
 					if (II_LINE_BEGIN_1L_ADDR <= cursorAddr && cursorAddr <= II_LINE_END_1L_ADDR)
 						retval = cursorSeek(d, L2_START, 0);
-					else
-						retval = cursorSeek(d, L1_START, 0);
+					else{
+						index = getLinesDataIndex(getLinesNum(d),II_LINE_BEGIN_2L_ADDR);
+						nChar = getCursorAddr(d) - II_LINE_BEGIN_2L_ADDR;
+						
+						strncpy(buff, (d->linesData)+index, nChar);
+						displaySwitch(d, OFF);
+						clear(d);
+						
+						for(index = 0; index < nChar; index++){
+							lcdPutChar(d, buff[index]);
+						}
+						
+						cursorSeek(d, L2_START, 0);
+						displaySwitch(d, ON);
+					}
 				}
 				saveDisplayState(d);
 			}else{
@@ -641,6 +670,7 @@ int lcdPutChar(i2cDisplay_t d, int c){
 				hnibble2 = (charCode & 0x0F);
 
 				if ((retval = makeAndWriteData(d, hnibble1, hnibble2)) >= 0){
+					(d->linesData)[getLinesDataIndex(getLinesNum(d),getCursorAddr(d))] = charCode;
 					setCursorAddr(d,shiftDDRAMaddr(getLinesNum(d), getCursorAddr(d), offset));
 					saveDisplayState(d);
 				}else{
@@ -799,4 +829,18 @@ static void saveDisplayState(i2cDisplay_t d){
 	fout = fopen(DSFileName, "wb");
 	fwrite(d, sizeof(struct_i2cDispaly_t), 1, fout);
 	fclose(fout);
+}
+
+static int getLinesDataIndex(int lines, int cursorAddr){
+	int index;
+	
+	if (lines == 1)
+		index = cursorAddr;
+	else
+		if (cursorAddr >= II_LINE_BEGIN_2L_ADDR)
+			index = cursorAddr-II_LINE_BEGIN_2L_ADDR + II_LINE_MAX_CHAR;
+		else
+			index = cursorAddr;
+	
+	return index;
 }

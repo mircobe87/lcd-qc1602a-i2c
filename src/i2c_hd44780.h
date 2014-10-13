@@ -91,6 +91,7 @@ typedef struct {
 	shiftDirection_t cursorDirShift; /**< Indica la direzione di scorrimento del cursore */
 	switchStatus_t displayShift;     /**< Indica se anche tutto il contenuto del display viene spostato */
 	int i2cBus;                      /**< Descrittore del bus I2C */
+	char linesData[I_LINE_MAX_CHAR]; /**< Memorizza i caratteri scritti sul display */
 } struct_i2cDispaly_t;
 
 /**
@@ -145,7 +146,7 @@ switchStatus_t getBacklightStatus(i2cDisplay_t d);
  * @retval 0 se tutto è andato bene;
  * @retval -1 in caso di errore (setta errno)
  */
-int diplaySwitch(i2cDisplay_t d, switchStatus_t onOff);
+int displaySwitch(i2cDisplay_t d, switchStatus_t onOff);
 
 /**
  * Ritorna lo stato del display.
