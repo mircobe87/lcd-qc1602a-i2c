@@ -23,8 +23,14 @@
 CC = gcc
 CFALGS = -Wall -pedantic
 
-test : test.o i2c_hd44780.o a00_cgrom.o
-	$(CC) $(CFALGS) $^ -o $@ -lwiringPi
+LIB = lcd-qc1602a-i2c
+LIBNAME = lib$(LIB).a
+LIBDIR = ../lib
+LIBOBJECTS = i2c_hd44780.o a00_cgrom.o
+
+test : test.o
+	make lib
+	$(CC) $(CFALGS) $^ -o $@ -lwiringPi -L $(LIBDIR) -l $(LIB)
 
 test.o : test.c i2c_hd44780.h
 	$(CC) $(CFALGS) -c $< -o $@
@@ -35,11 +41,15 @@ i2c_hd44780.o: i2c_hd44780.c i2c_hd44780.h a00_cgrom.h
 a00_cgrom.o: a00_cgrom.c a00_cgrom.h
 	$(CC) $(CFALGS) -c $< -o $@
 
-runtest :
+lib: $(LIBOBJECTS)
+	ar -r $(LIBNAME) $^
+	cp $(LIBNAME) $(LIBDIR)
+
+runtest:
 	./test
 
 clean:
-	-rm *.o *~
+	-rm *.o *~ *.a
 
 docu:
 	doxygen
